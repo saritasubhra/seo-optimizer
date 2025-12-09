@@ -1,4 +1,4 @@
-import { prisma } from "../db.server";
+import prisma from "../db.server";
 
 export async function loader() {
   const posts = await prisma.post.findMany({

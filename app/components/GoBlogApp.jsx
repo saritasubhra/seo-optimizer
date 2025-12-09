@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   PenTool,
   FileText,
-  Settings,
   Search,
   CheckCircle,
   AlertCircle,
@@ -14,7 +13,6 @@ import {
   Globe,
   Loader2,
 } from "lucide-react";
-// import { useFetcher } from "@remix-run/react";
 import PropTypes from "prop-types";
 
 // --- Utility: SEO Analysis Engine ---
@@ -37,13 +35,13 @@ const analyzeSEO = (title, content, keyword) => {
   }
 
   // 2. Title Length (10pts)
-  if (title.length >= 40 && title.length <= 60) {
+  if (title.length >= 4 && title.length <= 60) {
     score += 10;
-    checks.push({ passed: true, msg: "Title length is optimal (40-60 chars)" });
+    checks.push({ passed: true, msg: "Title length is optimal (4-60 chars)" });
   } else {
     checks.push({
       passed: false,
-      msg: `Title length: ${title.length} chars (Target: 40-60)`,
+      msg: `Title length: ${title.length} chars (Target: 4-60)`,
     });
   }
 
@@ -53,7 +51,7 @@ const analyzeSEO = (title, content, keyword) => {
     .length;
   const density = wordCount > 0 ? (keywordCount / wordCount) * 100 : 0;
 
-  if (density >= 0.5 && density <= 2.5) {
+  if (density >= 0.5 && density <= 10.5) {
     score += 20;
     checks.push({
       passed: true,
@@ -150,39 +148,35 @@ ScoreGauge.propTypes = {
   score: PropTypes.number.isRequired,
 };
 
-// --- Mock AI Generator Service ---
-const generateBlogContent = async (topic, keyword, tone) => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(
-        `
-# Why ${topic} is Essential for Your Business
-
-In today's fast-paced digital world, understanding **${keyword}** has never been more critical. Whether you are a small startup or a large enterprise, leveraging the power of ${topic} can significantly impact your bottom line.
-
-## The Importance of ${keyword}
-
-Many experts agree that ${keyword} serves as the backbone of modern efficiency. Here are three reasons why:
-1. It streamlines operations.
-2. It improves customer satisfaction.
-3. It drives long-term growth.
-
-## How to Get Started
-
-Implementing ${topic} might seem daunting at first, but with the right strategy, it is entirely manageable. Start by analyzing your current needs and setting clear goals. 
-
-## Conclusion
-
-Don't wait to optimize your business. Embrace ${topic} today and watch your metrics soar!
-      `.trim(),
-      );
-    }, 2000);
+const generateBlogContent = async (topic, keyword, tone, userApiKey) => {
+  const response = await fetch("/api/generate-blog-content", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ topic, keyword, tone, userApiKey }),
   });
+
+  // const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Invalid JSON response from backend");
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || "Failed to generate content");
+  }
+  return data.content;
 };
 
 export default function GoBlogApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(true);
+
+  const [userApiKey, setUserApiKey] = useState("");
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
   // Editor State
   const [currentPost, setCurrentPost] = useState({
@@ -193,42 +187,78 @@ export default function GoBlogApp() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState(null);
-
-  // Auth & Data Fetching
-
-  // const fetcher = useFetcher();
   const [posts, setPosts] = useState([]);
 
-  // useEffect(() => {
-  //   fetcher.load("/api/seo/list");
-  // }, []);
   useEffect(() => {
     const loadPosts = async () => {
-      const res = await fetch("/api/seo/list");
-      const data = await res.json();
-      setPosts(data.posts || []);
+      try {
+        const res = await fetch("/api/seo/list");
+        const data = await res.json();
+
+        setPosts(data || []);
+      } catch (err) {
+        console.error("Cannot load posts:", err);
+      } finally {
+        setLoading(false);
+      }
     };
+
     loadPosts();
   }, []);
 
   // useEffect(() => {
-  //   if (fetcher.data?.posts) {
-  //     setPosts(fetcher.data.posts);
-  //   }
-  // }, [fetcher.data]);
+  //   const savedKey = localStorage.getItem("user_gemini_key");
+  //   if (savedKey) setUserApiKey(savedKey);
+  // }, []);
+
+  // Load saved Gemini API key from localStorage (runs only in browser)
+  useEffect(() => {
+    const savedKey =
+      typeof window !== "undefined"
+        ? localStorage.getItem("user_gemini_key")
+        : null;
+
+    if (savedKey) {
+      setUserApiKey(savedKey);
+    }
+  }, []);
 
   // Actions
-  const handleGenerate = async (topic, keyword, tone) => {
-    setIsGenerating(true);
-    const content = await generateBlogContent(topic, keyword, tone);
-    setCurrentPost({
-      title: `${topic}: The Ultimate Guide`,
-      keyword: keyword,
-      content: content,
-    });
-    setIsGenerating(false);
-    setActiveTab("editor");
-    showNotification("Content generated successfully!", "success");
+  const handleGenerate = async (topic, keyword, tone, userApiKey) => {
+    try {
+      setIsGenerating(true);
+      const content = await generateBlogContent(
+        topic,
+        keyword,
+        tone,
+        userApiKey,
+      );
+      setCurrentPost({
+        title: `${topic}: The Ultimate Guide`,
+        keyword: keyword,
+        content: content,
+      });
+
+      setActiveTab("editor");
+      showNotification("Content generated successfully!", "success");
+    } catch (err) {
+      console.error("Generation error:", err);
+
+      let message = "Failed to generate content.";
+
+      if (err.message.includes("Invalid API key")) {
+        message = "Your API key is invalid. Please update it.";
+      } else if (err.message.includes("Failed to fetch")) {
+        message = "Network error: cannot reach server.";
+      } else if (err.message.includes("JSON")) {
+        message = "Server returned unexpected response.";
+      } else if (err.message) {
+        message = err.message;
+      }
+      showNotification(message, "error");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleSave = async () => {
@@ -243,11 +273,13 @@ export default function GoBlogApp() {
       score: analysis.score,
     };
 
-    await fetch("/api/seo/save", {
+    const res1 = await fetch("/api/seo/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+
+    await res1.json();
 
     showNotification("Blog post saved!", "success");
     setActiveTab("posts");
@@ -255,8 +287,7 @@ export default function GoBlogApp() {
     // Reload post list
     const res = await fetch("/api/seo/list");
     const data = await res.json();
-    setPosts(data.posts || []);
-
+    setPosts(data || []);
     setCurrentPost({ title: "", content: "", keyword: "" });
   };
 
@@ -272,7 +303,7 @@ export default function GoBlogApp() {
     // Reload list
     const res = await fetch("/api/seo/list");
     const data = await res.json();
-    setPosts(data.posts || []);
+    setPosts(data || []);
   };
 
   const handleEdit = (post) => {
@@ -295,7 +326,7 @@ export default function GoBlogApp() {
   }, [currentPost.title, currentPost.content, currentPost.keyword]);
 
   // Views
-  const renderDashboard = () => (
+  const RenderDashboard = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
@@ -361,10 +392,10 @@ export default function GoBlogApp() {
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-slate-800">Recent Activity</h2>
+          <h2 className="text-xl font-bold text-slate-800">Recent Activity</h2>
           <button
             onClick={() => setActiveTab("posts")}
-            className="text-sm text-blue-600 font-medium hover:text-blue-700"
+            className="text-lg text-[#23b5b5] font-medium hover:text-[#167a7a]"
           >
             View All
           </button>
@@ -426,7 +457,7 @@ export default function GoBlogApp() {
     return (
       <div className="max-w-2xl mx-auto space-y-8 animate-in zoom-in-95 duration-300">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-linear-to-br from-[#23b5b5] to-[#1a9a92] rounded-2xl shadow-lg mb-4">
             <Sparkles className="text-white" size={32} />
           </div>
           <h2 className="text-2xl font-bold text-slate-800">
@@ -496,9 +527,16 @@ export default function GoBlogApp() {
           </div>
 
           <button
-            onClick={() => handleGenerate(topic, keyword, tone)}
+            // onClick={() => handleGenerate(topic, keyword, tone)}
+            onClick={async () => {
+              if (!userApiKey) {
+                setShowApiKeyModal(true);
+                return;
+              }
+              handleGenerate(topic, keyword, tone, userApiKey);
+            }}
             disabled={!topic || !keyword || isGenerating}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold text-lg hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-4 bg-[#23b5b5] text-white rounded-xl font-bold text-lg hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-90 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isGenerating ? (
               <Loader2 className="animate-spin" />
@@ -513,17 +551,17 @@ export default function GoBlogApp() {
   };
 
   const renderEditor = () => (
-    <div className="flex h-[calc(100vh-8rem)] gap-6">
+    <div className="flex gap-6 ">
       {/* Main Editor */}
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+          <h3 className="font-bold text-lg text-slate-700 flex items-center gap-2">
             <PenTool size={18} /> Editor
           </h3>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 bg-[#23b5b5] text-white rounded-lg text-sm font-medium  flex items-center gap-2 disabled:opacity-50"
           >
             {isSaving ? (
               <Loader2 size={16} className="animate-spin" />
@@ -534,7 +572,7 @@ export default function GoBlogApp() {
           </button>
         </div>
 
-        <div className="p-6 flex-1 overflow-y-auto space-y-4">
+        <div className="p-6 space-y-4 h-full">
           <input
             value={currentPost.title}
             onChange={(e) =>
@@ -559,7 +597,7 @@ export default function GoBlogApp() {
               setCurrentPost({ ...currentPost, content: e.target.value })
             }
             placeholder="Start writing your amazing content here..."
-            className="w-full h-full resize-none outline-none text-lg text-slate-600 leading-relaxed font-light"
+            className="w-full h-full pb-10 resize-none outline-none text-lg text-slate-600 leading-relaxed font-light"
           />
         </div>
       </div>
@@ -567,11 +605,11 @@ export default function GoBlogApp() {
       {/* SEO Sidebar */}
       <div className="w-80 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-100 bg-slate-50">
-          <h3 className="font-semibold text-slate-700 flex items-center gap-2">
+          <h3 className="font-bold text-lg text-slate-700 flex items-center gap-2">
             <Search size={18} /> SEO Analysis
           </h3>
         </div>
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-6">
           <div className="flex justify-center mb-8">
             <ScoreGauge score={seoAnalysis.score} />
           </div>
@@ -625,7 +663,7 @@ export default function GoBlogApp() {
             setCurrentPost({ title: "", content: "", keyword: "" });
             setActiveTab("editor");
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+          className="px-4 py-2 bg-[#23b5b5] text-white rounded-lg text-sm font-medium "
         >
           New Post
         </button>
@@ -697,6 +735,51 @@ export default function GoBlogApp() {
     </div>
   );
 
+  const ApiKeyModal = () => {
+    const [tempKey, setTempKey] = useState(userApiKey || "");
+
+    if (!showApiKeyModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="bg-white p-8 rounded-xl shadow-xl w-[400px] space-y-6">
+          <h2 className="text-xl font-bold text-slate-800">
+            Enter Your Gemini API Key
+          </h2>
+
+          <input
+            type="password"
+            value={tempKey}
+            onChange={(e) => setTempKey(e.target.value)}
+            placeholder="Enter your Gemini API Key"
+            className="w-full p-3 border border-slate-300 rounded-lg outline-none"
+          />
+
+          <div className="flex justify-end gap-4">
+            <button
+              className="px-4 py-2 text-slate-600"
+              onClick={() => setShowApiKeyModal(false)}
+            >
+              Cancel
+            </button>
+
+            <button
+              className="px-4 py-2 bg-[#23b5b5] text-white rounded-lg"
+              onClick={() => {
+                localStorage.setItem("user_gemini_key", tempKey);
+                setUserApiKey(tempKey);
+                setShowApiKeyModal(false);
+                showNotification("API Key saved!", "success");
+              }}
+            >
+              Save Key
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading)
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-50 text-slate-400">
@@ -705,86 +788,95 @@ export default function GoBlogApp() {
     );
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
       {/* Toast Notification */}
       {notification && (
         <div
           className={`fixed top-4 right-4 px-6 py-3 rounded-lg shadow-xl z-50 text-white font-medium animate-in slide-in-from-top-2
-          ${notification.type === "success" ? "bg-emerald-600" : "bg-rose-600"}`}
+        ${notification.type === "success" ? "bg-emerald-600" : "bg-rose-600"}`}
         >
           {notification.msg}
         </div>
       )}
 
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 fixed h-full z-10 hidden md:flex flex-col">
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-2 text-blue-600">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
-              GB
-            </div>
-            <span className="text-xl font-bold text-slate-800">GoBlog</span>
-          </div>
+      {/* 🔵 TOP NAVBAR (instead of sidebar) */}
+      <nav className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-20">
+        {/* Logo */}
+        <div className="flex items-center gap-2 text-blue-600">
+          {/* <span className="text-xl font-bold text-slate-800">
+            SEO Optimizer
+          </span> */}
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
-          <SidebarItem
-            icon={LayoutDashboard}
-            label="Dashboard"
-            active={activeTab === "dashboard"}
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-6 text-lg">
+          <button
             onClick={() => setActiveTab("dashboard")}
-          />
-          <SidebarItem
-            icon={Sparkles}
-            label="AI Writer"
-            active={activeTab === "ai_writer"}
-            onClick={() => setActiveTab("ai_writer")}
-          />
-          <SidebarItem
-            icon={PenTool}
-            label="Editor"
-            active={activeTab === "editor"}
-            onClick={() => setActiveTab("editor")}
-          />
-          <SidebarItem
-            icon={FileText}
-            label="My Posts"
-            active={activeTab === "posts"}
-            onClick={() => setActiveTab("posts")}
-          />
-        </nav>
+            className={`flex items-center gap-2 font-medium transition-colors ${
+              activeTab === "dashboard"
+                ? "text-[#23b5b5]"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <LayoutDashboard size={18} />
+            Dashboard
+          </button>
 
-        <div className="p-4 border-t border-slate-100">
-          <button className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-slate-800 transition-colors w-full">
-            <Settings size={20} />
-            <span className="font-medium">Settings</span>
+          <button
+            onClick={() => setActiveTab("ai_writer")}
+            className={`flex items-center gap-2 font-medium transition-colors ${
+              activeTab === "ai_writer"
+                ? "text-[#23b5b5]"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Sparkles size={18} />
+            AI Writer
+          </button>
+
+          <button
+            onClick={() => setActiveTab("editor")}
+            className={`flex items-center gap-2 font-medium transition-colors ${
+              activeTab === "editor"
+                ? "text-[#23b5b5]"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <PenTool size={18} />
+            Editor
+          </button>
+
+          <button
+            onClick={() => setActiveTab("posts")}
+            className={`flex items-center gap-2 font-medium transition-colors ${
+              activeTab === "posts"
+                ? "text-[#23b5b5]"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <FileText size={18} />
+            My Posts
           </button>
         </div>
-      </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 md:ml-64 min-h-screen">
-        <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-10 px-8 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-800 capitalize">
-            {activeTab.replace("_", " ")}
-          </h1>
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden">
-              <img
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed="shopify-user"`}
-                alt="avatar"
-              />
-            </div>
-          </div>
-        </header>
-
-        <div className="p-8">
-          {activeTab === "dashboard" && renderDashboard()}
-          {activeTab === "ai_writer" && RenderAIWriter()}
-          {activeTab === "editor" && renderEditor()}
-          {activeTab === "posts" && renderPosts()}
+        {/* Avatar */}
+        <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden border border-white shadow-sm">
+          <img
+            src={`https://api.dicebear.com/7.x/avataaars/svg?seed="shopify-user"`}
+            alt="avatar"
+          />
         </div>
+      </nav>
+
+      {/* MAIN PAGE CONTENT */}
+      <main className="flex-1 p-8 overflow-visible">
+        {activeTab === "dashboard" && <RenderDashboard />}
+        {activeTab === "ai_writer" && <RenderAIWriter />}
+        {activeTab === "editor" && renderEditor()}
+        {activeTab === "posts" && renderPosts()}
       </main>
+
+      <ApiKeyModal />
     </div>
   );
 }
