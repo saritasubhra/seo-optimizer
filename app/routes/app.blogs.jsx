@@ -37,7 +37,6 @@ export default function BlogsPage() {
   /* ------------------------------------------ */
 
   const styles = {
-    // --- LAYOUT & CONTAINER STYLES (Matching Index Page) ---
     mainWrapper: {
       minHeight: "100vh",
       width: "100%",
@@ -116,7 +115,6 @@ export default function BlogsPage() {
       color: "#1a9a92", // Teal color from Index button
       marginBottom: "10px",
     },
-
     score: {
       display: "inline-block",
       padding: "6px 14px",
@@ -128,7 +126,6 @@ export default function BlogsPage() {
       marginBottom: "16px",
       textTransform: "uppercase",
     },
-
     excerpt: {
       marginTop: "10px",
       fontSize: "15px", // Slightly larger font
@@ -136,14 +133,12 @@ export default function BlogsPage() {
       color: "#475569",
       whiteSpace: "normal",
     },
-
     loading: {
       textAlign: "center",
       marginTop: "80px",
       fontSize: "22px",
       color: "#64748b",
     },
-
     // --- NAVIGATION BAR (To match the theme) ---
     navWrapper: {
       display: "flex",
@@ -240,11 +235,12 @@ export default function BlogsPage() {
                 role="button"
                 tabIndex={0}
                 aria-label={`Open blog post: ${post.title}`}
-                // This should navigate to a detail page, assuming post.id exists
-                onClick={() => navigate(`/app/seo/${post.id}`)}
+                onClick={() => {
+                  navigate(`/app/blogsdetails/${post.id}`);
+                }}
                 onKeyDown={(e) =>
                   (e.key === "Enter" || e.key === " ") &&
-                  navigate(`/app/seo/${post.id}`)
+                  navigate(`/app/blogsdetails/${post.id}`)
                 }
                 onMouseOver={(e) =>
                   Object.assign(e.currentTarget.style, styles.cardHover)

@@ -9,7 +9,6 @@ import {
   Clock,
 } from "lucide-react";
 
-// Mock data representing trending blog topics
 const initialTopics = [
   {
     id: 1,
@@ -81,89 +80,75 @@ const initialTopics = [
 ];
 
 const PRIMARY_COLOR = "#23b5b5";
-const HOVER_COLOR = "#1e9999"; // Slightly darker for hover effect
-const LIGHT_ACCENT_BG = "#e8fafa"; // Very light tint of the primary color
+const HOVER_COLOR = "#1e9999";
+const LIGHT_ACCENT_BG = "#e8fafa";
 
-/**
- * Reusable Card component for a single trending topic.
- */
 const TopicCard = ({ topic }) => {
   const Icon = topic.icon;
 
   const getPotentialColor = (potential) => {
-    // Keep standard semantic colors for readability (High/Medium/Seasonal)
     if (potential.includes("High") || potential.includes("10/10"))
-      return "text-red-600 bg-red-100";
+      return "text-rose-700 bg-rose-50 border-rose-100";
     if (
       potential.includes("Medium") ||
       potential.includes("7/10") ||
       potential.includes("8/10")
     )
-      return "text-amber-600 bg-amber-100";
-    return "text-green-600 bg-green-100";
+      return "text-amber-700 bg-amber-50 border-amber-100";
+    return "text-emerald-700 bg-emerald-50 border-emerald-100";
   };
 
   return (
-    <div className="bg-white p-6 border border-gray-100 rounded-xl shadow-lg hover:shadow-xl transition duration-300 flex flex-col h-full">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center space-x-3">
-          {/* Accent colored icon container */}
-          <div
-            className={`p-3 rounded-full text-[${PRIMARY_COLOR}]`}
-            style={{ backgroundColor: LIGHT_ACCENT_BG }}
-          >
-            <Icon className="w-6 h-6" />
+    <div className="group bg-white p-6 border border-slate-200 rounded-2xl shadow-sm hover:shadow-2xl hover:border-transparent transition-all duration-500 flex flex-col h-full relative overflow-hidden">
+      <div className="relative z-1">
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex items-center space-x-3">
+            {/* Elevated Icon Container */}
+            <div
+              className="p-3 rounded-xl shadow-inner group-hover:scale-110 transition-transform duration-300"
+              style={{
+                backgroundColor: LIGHT_ACCENT_BG,
+                color: PRIMARY_COLOR,
+              }}
+            >
+              <Icon className="w-6 h-6" />
+            </div>
+            <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">
+              {topic.category}
+            </span>
           </div>
-          <span className="text-sm font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-            {topic.category}
-          </span>
+
+          {/* Status Badge with Border */}
+          <div
+            className={`text-xs font-bold px-3 py-1.5 rounded-lg border shadow-sm ${getPotentialColor(topic.potential)}`}
+          >
+            {topic.potential.split("(")[0].trim()}
+          </div>
         </div>
-        <div
-          className={`text-xs font-semibold px-3 py-1 rounded-full ml-auto ${getPotentialColor(topic.potential)}`}
-        >
-          {topic.potential.split("(")[0].trim()}
+
+        <h3 className="text-xl font-extrabold text-slate-900 mb-3 leading-tight group-hover:text-teal-900 transition-colors">
+          {topic.title}
+        </h3>
+
+        <p className="text-slate-600 text-sm leading-relaxed mb-6 line-clamp-3">
+          {topic.description}
+        </p>
+
+        <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-50">
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+            </div>
+            <span className="text-sm font-semibold text-slate-700">
+              {topic.trend}
+            </span>
+          </div>
         </div>
       </div>
-
-      <h3 className="text-xl font-bold text-gray-900 mt-4 mb-2 leading-snug">
-        {topic.title}
-      </h3>
-
-      <p className="text-gray-600 text-sm flex-grow mb-4">
-        {topic.description}
-      </p>
-
-      <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-        <div className="flex items-center space-x-1">
-          <TrendingUp className="w-4 h-4 text-emerald-500" />
-          <span>{topic.trend}</span>
-        </div>
-      </div>
-
-      {/* Primary button using the new accent color */}
-      <button
-        onClick={() => console.log(`Analyzing topic: ${topic.title}`)}
-        className={`w-full mt-auto py-2.5 px-4 bg-[${PRIMARY_COLOR}] text-white font-semibold rounded-lg shadow-md transition duration-150 transform hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-offset-2`}
-        style={{
-          backgroundColor: PRIMARY_COLOR,
-          "--tw-ring-color": PRIMARY_COLOR,
-        }}
-        onMouseOver={(e) =>
-          (e.currentTarget.style.backgroundColor = HOVER_COLOR)
-        }
-        onMouseOut={(e) =>
-          (e.currentTarget.style.backgroundColor = PRIMARY_COLOR)
-        }
-      >
-        Analyze Topic & Get Outline
-      </button>
     </div>
   );
 };
 
-/**
- * Main application component for the Trending Topics Page
- */
 const App = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("All");
@@ -214,7 +199,6 @@ const App = () => {
               placeholder="Search by topic or keywords..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              // Apply accent color on focus
               className={`w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-offset-2 focus:border-[${PRIMARY_COLOR}] transition duration-150 shadow-sm`}
               style={{
                 "--tw-ring-color": PRIMARY_COLOR,
@@ -229,7 +213,6 @@ const App = () => {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              // Apply accent color on focus
               className={`w-full py-2.5 px-4 border border-gray-300 bg-white rounded-lg focus:ring-2 focus:ring-offset-2 focus:border-[${PRIMARY_COLOR}] transition duration-150 shadow-sm appearance-none`}
               style={{
                 paddingRight: "2.5rem",

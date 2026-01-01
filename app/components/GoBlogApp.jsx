@@ -157,11 +157,15 @@ const generateBlogContent = async (topic, keyword, tone, userApiKey) => {
     body: JSON.stringify({ topic, keyword, tone, userApiKey }),
   });
 
+  console.log(userApiKey);
+
   // const data = await response.json();
   let data;
   try {
     data = await response.json();
-  } catch {
+    console.log("data1", data);
+  } catch (err) {
+    console.log("error1", err);
     throw new Error("Invalid JSON response from backend");
   }
 
@@ -561,7 +565,7 @@ export default function GoBlogApp() {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-2 bg-[#23b5b5] text-white rounded-lg text-sm font-medium  flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 cursor-pointer bg-[#23b5b5] text-white rounded-lg text-sm font-medium  flex items-center gap-2 disabled:opacity-50"
           >
             {isSaving ? (
               <Loader2 size={16} className="animate-spin" />
@@ -572,7 +576,7 @@ export default function GoBlogApp() {
           </button>
         </div>
 
-        <div className="p-6 space-y-4 h-full">
+        <div className="p-6 flex flex-col h-[calc(100vh-250px)]">
           <input
             value={currentPost.title}
             onChange={(e) =>
@@ -596,8 +600,8 @@ export default function GoBlogApp() {
             onChange={(e) =>
               setCurrentPost({ ...currentPost, content: e.target.value })
             }
-            placeholder="Start writing your amazing content here..."
-            className="w-full h-full pb-10 resize-none outline-none text-lg text-slate-600 leading-relaxed font-light"
+            placeholder="Start writing..."
+            className="w-full flex-1 min-h-[500px] pb-10 resize-none outline-none text-lg text-slate-600 leading-relaxed font-light"
           />
         </div>
       </div>
