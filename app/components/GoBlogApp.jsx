@@ -803,7 +803,7 @@ export default function GoBlogApp() {
         </div>
       )}
 
-      {/* 🔵 TOP NAVBAR (instead of sidebar) */}
+      {/* TOP NAVBAR (instead of sidebar) */}
       <nav className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-20">
         {/* Logo */}
         <div className="flex items-center gap-2 text-blue-600">
@@ -864,12 +864,7 @@ export default function GoBlogApp() {
         </div>
 
         {/* Avatar */}
-        <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden border border-white shadow-sm">
-          <img
-            src={`https://api.dicebear.com/7.x/avataaars/svg?seed="shopify-user"`}
-            alt="avatar"
-          />
-        </div>
+        <div></div>
       </nav>
 
       {/* MAIN PAGE CONTENT */}
