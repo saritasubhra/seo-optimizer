@@ -38,4 +38,6 @@ model Post {
   keyword   String
   score     Int
   createdAt DateTime @default(now())
+  shop      String   // Removed the incorrect @index from here
+  @@index([shop])  // Add the index correctly here
 }

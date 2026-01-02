@@ -8,14 +8,9 @@ export const loader = async ({ request, params }) => {
 
   const { id } = params;
 
-  console.log(id);
-
-  // Query the database directly instead of using fetch()
   const post = await prisma.post.findUnique({
-    where: { id: id }, // Use Number(id) if your DB ID is an integer
+    where: { id: id },
   });
-
-  console.log(post);
 
   if (!post) {
     throw new Response("Blog post not found", { status: 404 });
@@ -93,12 +88,6 @@ export default function BlogDetailPage() {
       lineHeight: "1.2",
     },
 
-    badgeRow: {
-      display: "flex",
-      gap: "12px",
-      marginBottom: "32px",
-    },
-
     badgeSeo: {
       padding: "6px 14px",
       background: "#e0f2fe",
@@ -130,27 +119,30 @@ export default function BlogDetailPage() {
       border: "1px solid #e2e8f0",
       boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
     },
+
+    badgeRow: {
+      display: "flex",
+      gap: "12px",
+      marginBottom: "32px",
+      alignItems: "center",
+      flexWrap: "wrap",
+    },
+
+    dateBadge: {
+      padding: "6px 14px",
+      background: "#f1f5f9",
+      color: "#475569",
+      borderRadius: "20px",
+      fontWeight: "600",
+      fontSize: "13px",
+      display: "flex",
+      alignItems: "center",
+      gap: "6px",
+    },
   };
 
   return (
     <div style={styles.mainWrapper}>
-      {/* Navbar for consistency */}
-
-      {/* <nav style={styles.navWrapper}>
-        <div style={styles.navLinks}>
-          <span style={styles.navLinkItem} onClick={() => navigate("/app")}>
-            Home
-          </span>
-
-          <span
-            style={styles.navLinkItem}
-            onClick={() => navigate("/app/blogs")}
-          >
-            Blog
-          </span>
-        </div>
-      </nav> */}
-
       <div style={styles.contentContainer}>
         <button
           style={styles.backButton}
@@ -162,8 +154,14 @@ export default function BlogDetailPage() {
         <h1 style={styles.title}>{post.title}</h1>
 
         <div style={styles.badgeRow}>
+          <span style={styles.dateBadge}>
+            {new Date(post.createdAt).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
           <span style={styles.badgeSeo}>SEO Score: {post.score}</span>
-
           <span style={styles.badgeKeyword}>Keyword: {post.keyword}</span>
         </div>
 

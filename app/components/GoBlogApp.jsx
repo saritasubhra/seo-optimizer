@@ -157,16 +157,11 @@ const generateBlogContent = async (topic, keyword, tone, userApiKey) => {
     body: JSON.stringify({ topic, keyword, tone, userApiKey }),
   });
 
-  console.log(userApiKey);
-
-  // const data = await response.json();
   let data;
   try {
     data = await response.json();
-    console.log("data1", data);
   } catch (err) {
-    console.log("error1", err);
-    throw new Error("Invalid JSON response from backend");
+    throw new Error("Couldn't fetch response.");
   }
 
   if (!response.ok) {
@@ -210,12 +205,6 @@ export default function GoBlogApp() {
     loadPosts();
   }, []);
 
-  // useEffect(() => {
-  //   const savedKey = localStorage.getItem("user_gemini_key");
-  //   if (savedKey) setUserApiKey(savedKey);
-  // }, []);
-
-  // Load saved Gemini API key from localStorage (runs only in browser)
   useEffect(() => {
     const savedKey =
       typeof window !== "undefined"
@@ -227,7 +216,6 @@ export default function GoBlogApp() {
     }
   }, []);
 
-  // Actions
   const handleGenerate = async (topic, keyword, tone, userApiKey) => {
     try {
       setIsGenerating(true);
@@ -266,33 +254,41 @@ export default function GoBlogApp() {
   };
 
   const handleSave = async () => {
-    const analysis = analyzeSEO(
-      currentPost.title,
-      currentPost.content,
-      currentPost.keyword,
-    );
+    try {
+      setIsSaving(true);
+      const analysis = analyzeSEO(
+        currentPost.title,
+        currentPost.content,
+        currentPost.keyword,
+      );
 
-    const payload = {
-      ...currentPost,
-      score: analysis.score,
-    };
+      const payload = {
+        ...currentPost,
+        score: analysis.score,
+      };
 
-    const res1 = await fetch("/api/seo/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const res1 = await fetch("/api/seo/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    await res1.json();
+      await res1.json();
 
-    showNotification("Blog post saved!", "success");
-    setActiveTab("posts");
+      showNotification("Blog post saved!", "success");
+      setActiveTab("posts");
 
-    // Reload post list
-    const res = await fetch("/api/seo/list");
-    const data = await res.json();
-    setPosts(data || []);
-    setCurrentPost({ title: "", content: "", keyword: "" });
+      // Reload post list
+      const res = await fetch("/api/seo/list");
+      const data = await res.json();
+
+      setPosts(data || []);
+      setCurrentPost({ title: "", content: "", keyword: "" });
+    } catch (error) {
+      showNotification("Some error occured.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -686,10 +682,14 @@ export default function GoBlogApp() {
                 <span className="flex items-center gap-1">
                   <Search size={14} /> {post.keyword || "No keyword"}
                 </span>
-                <span className="flex items-center gap-1">
-                  {new Date(
-                    post.createdAt?.seconds * 1000,
-                  ).toLocaleDateString() || "Just now"}
+                <span className="flex items-center gap-1 text-slate-500">
+                  {post.createdAt
+                    ? new Date(post.createdAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "Just now"}
                 </span>
               </div>
             </div>
