@@ -8,6 +8,8 @@ export async function action({ request }) {
   const body = await request.json();
   const { id, title, content, keyword, score } = body;
 
+  console.log({ id, title, content, keyword, score });
+
   if (!title) return Response.json({ error: "Missing title" }, { status: 400 });
 
   if (id) {
@@ -30,6 +32,7 @@ export async function action({ request }) {
       shop: shop,
     },
   });
+  console.log("created", created);
 
   return Response.json(created);
 }
