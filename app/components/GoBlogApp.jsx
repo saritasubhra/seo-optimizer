@@ -196,7 +196,7 @@ export default function GoBlogApp() {
 
         setPosts(data || []);
       } catch (err) {
-        console.error("Cannot load posts:", err);
+        setNotification("Cannot load posts");
       } finally {
         setLoading(false);
       }
@@ -309,6 +309,13 @@ export default function GoBlogApp() {
   const handleEdit = (post) => {
     setCurrentPost(post);
     setActiveTab("editor");
+  };
+
+  const resetApiKey = () => {
+    localStorage.removeItem("user_gemini_key");
+    setUserApiKey("");
+    setShowApiKeyModal(true);
+    showNotification("API key removed. Please enter a new key.", "success");
   };
 
   const showNotification = (msg, type) => {
@@ -525,6 +532,21 @@ export default function GoBlogApp() {
               </select>
             </div>
           </div>
+
+          {userApiKey && (
+            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
+              <span className="text-sm text-slate-600">
+                ✅ Gemini API key is set
+              </span>
+
+              <button
+                onClick={resetApiKey}
+                className="text-sm font-medium text-[#23b5b5] hover:underline"
+              >
+                Use another key
+              </button>
+            </div>
+          )}
 
           <button
             // onClick={() => handleGenerate(topic, keyword, tone)}
