@@ -191,8 +191,10 @@ export default function GoBlogApp() {
   useEffect(() => {
     const loadPosts = async () => {
       try {
-        const res = await fetch("/api/seo/list");
+        const res = await fetch("/api/shopify/blogs");
+
         const data = await res.json();
+        console.log("blogs", data);
 
         setPosts(data || []);
       } catch (err) {
