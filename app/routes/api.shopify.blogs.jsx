@@ -11,6 +11,7 @@ export async function loader({ request }) {
             node {
               id
               title
+              handle
             }
           }
         }
