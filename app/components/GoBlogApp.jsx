@@ -12,6 +12,8 @@ import {
   Trash2,
   Globe,
   Loader2,
+  X,
+  Key,
 } from "lucide-react";
 import PropTypes from "prop-types";
 
@@ -148,13 +150,13 @@ ScoreGauge.propTypes = {
   score: PropTypes.number.isRequired,
 };
 
-const generateBlogContent = async (topic, keyword, tone, userApiKey) => {
+const generateBlogContent = async (content, keyword, userApiKey) => {
   const response = await fetch("/api/generate-blog-content", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ topic, keyword, tone, userApiKey }),
+    body: JSON.stringify({ content, keyword, userApiKey }),
   });
 
   let data;
@@ -179,9 +181,13 @@ export default function GoBlogApp() {
 
   // Editor State
   const [currentPost, setCurrentPost] = useState({
+    id: null,
     title: "",
     content: "",
-    keyword: "",
+    keyword: [],
+    visibility: "",
+    seoTitle: "",
+    seoDescription: "",
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -191,13 +197,23 @@ export default function GoBlogApp() {
   useEffect(() => {
     const loadPosts = async () => {
       try {
+        setLoading(true);
         const res = await fetch("/api/shopify/blogs");
-
         const data = await res.json();
-        console.log("blogs", data);
 
-        setPosts(data || []);
+        const allArticles = data.flatMap((blogEdge) => {
+          const articles = blogEdge.node.articles?.edges || [];
+
+          return articles.map((articleEdge) => ({
+            ...articleEdge.node,
+            blogTitle: blogEdge.node.title, // e.g., "News"
+            blogId: blogEdge.node.id,
+          }));
+        });
+
+        setPosts(allArticles);
       } catch (err) {
+        console.error("Mapping Error:", err);
         setNotification("Cannot load posts");
       } finally {
         setLoading(false);
@@ -218,19 +234,13 @@ export default function GoBlogApp() {
     }
   }, []);
 
-  const handleGenerate = async (topic, keyword, tone, userApiKey) => {
+  const handleGenerate = async (content, keyword, userApiKey) => {
     try {
       setIsGenerating(true);
-      const content = await generateBlogContent(
-        topic,
-        keyword,
-        tone,
-        userApiKey,
-      );
+      const result = await generateBlogContent(content, keyword, userApiKey);
       setCurrentPost({
-        title: `${topic}: The Ultimate Guide`,
-        keyword: keyword,
-        content: content,
+        ...currentPost,
+        content: result,
       });
 
       setActiveTab("editor");
@@ -255,62 +265,152 @@ export default function GoBlogApp() {
     }
   };
 
-  const handleSave = async () => {
+  // const handleDelete = async (id) => {
+  //   await fetch("/api/seo/delete", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({ id }),
+  //   });
+
+  //   showNotification("Post deleted!", "success");
+
+  //   // Reload list
+  //   const res = await fetch("/api/seo/list");
+  //   const data = await res.json();
+  //   setPosts(data || []);
+  // };
+
+  // Add this helper outside your component
+  const stripHtml = (html) => {
+    if (!html) return "";
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return doc.body.textContent || "";
+  };
+
+  const handleEdit = async (post) => {
     try {
-      setIsSaving(true);
-      const analysis = analyzeSEO(
-        currentPost.title,
-        currentPost.content,
-        currentPost.keyword,
+      setLoading(true);
+      const res = await fetch(
+        `/api/shopify/article?id=${encodeURIComponent(post.id)}`,
       );
+      const article = await res.json();
 
-      const payload = {
-        ...currentPost,
-        score: analysis.score,
-      };
-
-      const res1 = await fetch("/api/seo/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      setCurrentPost({
+        id: post.id,
+        title: article.title,
+        content: stripHtml(article.body),
+        keyword: article.tags || [],
+        visibility: article.visibility,
+        seoTitle: article.seoTitle || "",
+        seoDescription: article.seoDescription || "",
       });
 
-      await res1.json();
+      setActiveTab("editor");
+    } catch (err) {
+      showNotification("Failed to load article", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      showNotification("Blog post saved!", "success");
+  const handleSave = async () => {
+    if (!currentPost.id) {
+      showNotification(
+        "This post doesn't have a Shopify ID. Use Save Draft instead.",
+        "error",
+      );
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const res = await fetch("/api/shopify/article-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: currentPost.id,
+          title: currentPost.title,
+          bodyHtml: currentPost.content,
+          tags: currentPost.keyword,
+          isPublished: currentPost.visibility === "Visible",
+          seoTitle: currentPost.seoTitle,
+          seoDescription: currentPost.seoDescription,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || result.error || result.errors) {
+        showNotification(result.error || "Failed to update article", "error");
+        return;
+      }
+
+      showNotification("Successfully updated in Shopify!", "success");
       setActiveTab("posts");
 
-      // Reload post list
-      const res = await fetch("/api/seo/list");
-      const data = await res.json();
+      const res1 = await fetch("/api/shopify/blogs");
+      const data = await res1.json();
 
-      setPosts(data || []);
-      setCurrentPost({ title: "", content: "", keyword: "" });
+      const allArticles = data.flatMap((blogEdge) => {
+        const articles = blogEdge.node.articles?.edges || [];
+
+        return articles.map((articleEdge) => ({
+          ...articleEdge.node,
+          blogTitle: blogEdge.node.title, // e.g., "News"
+          blogId: blogEdge.node.id,
+        }));
+      });
+
+      setPosts(allArticles || []);
+      setCurrentPost({
+        id: null,
+        title: "",
+        content: "",
+        keyword: [],
+        visibility: "",
+        seoTitle: "",
+        seoDescription: "",
+      });
     } catch (error) {
-      showNotification("Some error occured.");
+      showNotification("Network error while updating", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    await fetch("/api/seo/delete", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
+  const handleDelete = async (postId) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to permanently delete this blog post?",
+    );
 
-    showNotification("Post deleted!", "success");
+    if (!confirmed) return;
 
-    // Reload list
-    const res = await fetch("/api/seo/list");
-    const data = await res.json();
-    setPosts(data || []);
-  };
+    try {
+      setLoading(true);
 
-  const handleEdit = (post) => {
-    setCurrentPost(post);
-    setActiveTab("editor");
+      const res = await fetch("/api/shopify/article-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: postId }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || result.error) {
+        showNotification(result.error || "Delete failed", "error");
+        return;
+      }
+
+      showNotification("Blog post deleted successfully", "success");
+
+      // Remove deleted post from UI instantly
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+    } catch (err) {
+      showNotification("Network error while deleting", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resetApiKey = () => {
@@ -327,14 +427,9 @@ export default function GoBlogApp() {
 
   // SEO Analysis Memo
   const seoAnalysis = useMemo(() => {
-    return analyzeSEO(
-      currentPost.title,
-      currentPost.content,
-      currentPost.keyword,
-    );
-  }, [currentPost.title, currentPost.content, currentPost.keyword]);
+    return analyzeSEO(currentPost.title, currentPost.content);
+  }, [currentPost.title, currentPost.content]);
 
-  // Views
   const RenderDashboard = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -422,30 +517,70 @@ export default function GoBlogApp() {
                   className="flex items-center justify-between p-4 hover:bg-slate-50 rounded-lg transition-colors border border-slate-100"
                 >
                   <div className="flex items-center gap-4">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm
-                      ${
-                        post.score >= 80
-                          ? "bg-emerald-100 text-emerald-700"
-                          : post.score >= 50
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-rose-100 text-rose-700"
-                      }`}
-                    >
-                      {post.score}
+                    {/* --- REPLACED SCORE WITH IMAGE --- */}
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                      {post.image?.url ? (
+                        <img
+                          src={post.image.url}
+                          alt={post.image.altText || post.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                          {/* Fallback icon if no image exists */}
+                          <svg
+                            className="w-6 h-6"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            />
+                          </svg>
+                        </div>
+                      )}
                     </div>
+                    {/* ---------------------------------- */}
+
                     <div>
                       <h4 className="font-semibold text-slate-800 line-clamp-1">
                         {post.title}
                       </h4>
-                      <p className="text-xs text-slate-500">
-                        Keyword: {post.keyword}
-                      </p>
+
+                      {post.tags.length > 0 && (
+                        <div
+                          style={{
+                            marginTop: "10px",
+                            display: "flex",
+                            gap: "5px",
+                            flexWrap: "wrap", // Added to prevent overflow on small screens
+                          }}
+                        >
+                          {post.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              style={{
+                                background: "#f1f1f1",
+                                padding: "2px 8px",
+                                borderRadius: "10px",
+                                fontSize: "12px",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <button
                     onClick={() => handleEdit(post)}
-                    className="text-slate-400 hover:text-blue-600"
+                    className="text-slate-400 hover:text-blue-600 p-2"
                   >
                     <PenTool size={16} />
                   </button>
@@ -458,175 +593,258 @@ export default function GoBlogApp() {
     </div>
   );
 
-  const RenderAIWriter = () => {
-    const [topic, setTopic] = useState("");
-    const [keyword, setKeyword] = useState("");
-    const [tone, setTone] = useState("Professional");
-
-    return (
-      <div className="max-w-2xl mx-auto space-y-8 animate-in zoom-in-95 duration-300">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-linear-to-br from-[#23b5b5] to-[#1a9a92] rounded-2xl shadow-lg mb-4">
-            <Sparkles className="text-white" size={32} />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800">
-            AI Blog Assistant
-          </h2>
-          <p className="text-slate-500">
-            Generate SEO-optimized content in seconds.
-          </p>
-        </div>
-
-        <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-100 space-y-6">
-          <div>
-            <label
-              htmlFor="blogTopic"
-              className="block text-sm font-medium text-slate-700 mb-2"
+  const renderEditor = () => (
+    <div className="flex gap-6 max-w-6xl mx-auto p-4">
+      <div className="flex-1 space-y-6">
+        {/* Blog Post Content Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+            <h3 className="font-bold text-slate-700">Blog Post Content</h3>
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="px-4 py-2 cursor-pointer bg-[#23b5b5]  text-white rounded-lg text-sm font-medium  flex items-center gap-2 disabled:opacity-50"
             >
-              Blog Topic
-            </label>
-
-            <input
-              id="blogTopic"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g., The Benefits of Sustainable Fashion"
-              className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-            />
+              {isSaving ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Save size={16} />
+              )}
+              Save Draft
+            </button>
           </div>
-
-          <div className="grid grid-cols-2 gap-6">
+          <div className="p-6 space-y-4">
             <div>
-              <label
-                htmlFor="targetKeyword"
-                className="block text-sm font-medium text-slate-700 mb-2"
-              >
-                Target Keyword
+              <label className="text-xs font-semibold text-slate-500 uppercase">
+                Title
               </label>
-
               <input
-                id="targetKeyword"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                placeholder="e.g., sustainable fashion"
-                className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                value={currentPost.title}
+                onChange={(e) =>
+                  setCurrentPost({ ...currentPost, title: e.target.value })
+                }
+                className="w-full text-xl font-bold border-b border-slate-200 outline-none py-2"
               />
             </div>
+            <div className="relative space-y-2">
+              {/* Header row */}
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-500 uppercase">
+                  Content
+                </label>
 
-            <div>
-              <label
-                htmlFor="toneOfVoice"
-                className="block text-sm font-medium text-slate-700 mb-2"
-              >
-                Tone of Voice
-              </label>
+                <div className="flex items-center gap-4">
+                  {/* API key indicator */}
+                  {userApiKey && (
+                    <button
+                      type="button"
+                      onClick={resetApiKey}
+                      className="text-xs text-slate-400 hover:text-[#23b5b5] flex items-center gap-1"
+                    >
+                      <Key size={12} />
+                      Change API key
+                    </button>
+                  )}
 
-              <select
-                id="toneOfVoice"
-                value={tone}
-                onChange={(e) => setTone(e.target.value)}
-                className="w-full p-3 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white"
-              >
-                <option>Professional</option>
-                <option>Casual</option>
-                <option>Enthusiastic</option>
-                <option>Informative</option>
-              </select>
+                  {/* AI button */}
+                  <button
+                    type="button"
+                    disabled={isGenerating}
+                    onClick={async () => {
+                      if (!userApiKey) {
+                        setShowApiKeyModal(true);
+                        return;
+                      }
+                      handleGenerate(
+                        currentPost?.content,
+                        currentPost?.keyword[0],
+                        userApiKey,
+                      );
+                    }}
+                    className="flex items-center gap-1 text-xs font-semibold text-[#23b5b5] hover:underline disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Improving…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} />
+                        Improve with AI
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Optional helper text */}
+              {userApiKey && (
+                <p className="text-[10px] text-slate-400">
+                  Using your saved Gemini API key
+                </p>
+              )}
+
+              {/* Textarea */}
+              <textarea
+                value={currentPost.content}
+                onChange={(e) =>
+                  setCurrentPost({ ...currentPost, content: e.target.value })
+                }
+                className="w-full min-h-[300px] resize-none outline-none text-slate-600 leading-relaxed mt-2"
+                disabled={isGenerating}
+              />
+
+              {/* Loading overlay */}
+              {isGenerating && (
+                <div className="absolute inset-0 bg-white/60 flex items-center justify-center rounded-lg">
+                  <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                    <Loader2 className="animate-spin" size={18} />
+                    Optimizing content with AI…
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {userApiKey && (
-            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
-              <span className="text-sm text-slate-600">
-                ✅ Gemini API key is set
-              </span>
-
-              <button
-                onClick={resetApiKey}
-                className="text-sm font-medium text-[#23b5b5] hover:underline"
-              >
-                Use another key
-              </button>
-            </div>
-          )}
-
-          <button
-            // onClick={() => handleGenerate(topic, keyword, tone)}
-            onClick={async () => {
-              if (!userApiKey) {
-                setShowApiKeyModal(true);
-                return;
-              }
-              handleGenerate(topic, keyword, tone, userApiKey);
-            }}
-            disabled={!topic || !keyword || isGenerating}
-            className="w-full py-4 bg-[#23b5b5] text-white rounded-xl font-bold text-lg hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-90 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isGenerating ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <Sparkles size={20} />
-            )}
-            {isGenerating ? "Generating Content..." : "Generate with AI"}
-          </button>
         </div>
-      </div>
-    );
-  };
 
-  const renderEditor = () => (
-    <div className="flex gap-6 ">
-      {/* Main Editor */}
-      <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <h3 className="font-bold text-lg text-slate-700 flex items-center gap-2">
-            <PenTool size={18} /> Editor
+        {/* Visibility Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <label className="text-xs font-semibold text-slate-500 uppercase">
+            Blog Post Visibility
+          </label>
+          <select
+            value={currentPost.visibility}
+            onChange={(e) =>
+              setCurrentPost({ ...currentPost, visibility: e.target.value })
+            }
+            className="w-full mt-2 p-2 border rounded-lg bg-slate-50 outline-none"
+          >
+            <option value="Visible">Visible</option>
+            <option value="Hidden">Hidden</option>
+          </select>
+        </div>
+
+        {/* Blog Post Tags Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+          <div className="flex justify-between items-center border-b pb-2">
+            <h3 className="font-bold text-slate-700">Blog Post Tags</h3>
+            <button
+              className="text-[#23b5b5] text-xs font-semibold flex items-center gap-1 hover:underline"
+              onClick={() => {
+                /* Optional: Add AI Tag generation logic here */
+              }}
+            >
+              <Sparkles size={14} /> Generate AI Tags
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-slate-500 uppercase">
+              Tags
+            </label>
+            <div className="flex flex-wrap gap-2 p-2 border rounded-lg bg-slate-50 min-h-[45px]">
+              {currentPost.keyword.map((tag, index) => (
+                <span
+                  key={index}
+                  className="flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded-md text-sm text-slate-600"
+                >
+                  {tag}
+                  <button
+                    onClick={() => {
+                      const newTags = currentPost.keyword.filter(
+                        (_, i) => i !== index,
+                      );
+                      setCurrentPost({ ...currentPost, keyword: newTags });
+                    }}
+                    className="hover:text-rose-500"
+                  >
+                    <X size={14} />
+                  </button>
+                </span>
+              ))}
+              <input
+                placeholder="Enter a tag..."
+                className="flex-1 bg-transparent outline-none text-sm min-w-[120px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.target.value.trim()) {
+                    e.preventDefault();
+                    const newTag = e.target.value.trim();
+                    if (!currentPost.keyword.includes(newTag)) {
+                      setCurrentPost({
+                        ...currentPost,
+                        keyword: [...currentPost.keyword, newTag],
+                      });
+                    }
+                    e.target.value = "";
+                  }
+                }}
+              />
+            </div>
+            <p className="text-[10px] text-slate-400">
+              Press Enter to add a tag
+            </p>
+          </div>
+        </div>
+
+        {/* SEO Meta Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+          <h3 className="font-bold text-slate-700 border-b pb-2">
+            Blog Post SEO Meta
           </h3>
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-2 cursor-pointer bg-[#23b5b5] text-white rounded-lg text-sm font-medium  flex items-center gap-2 disabled:opacity-50"
-          >
-            {isSaving ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Save size={16} />
-            )}
-            Save Draft
-          </button>
-        </div>
 
-        <div className="p-6 flex flex-col h-[calc(100vh-250px)]">
-          <input
-            value={currentPost.title}
-            onChange={(e) =>
-              setCurrentPost({ ...currentPost, title: e.target.value })
-            }
-            placeholder="Blog Post Title"
-            className="w-full text-3xl font-bold placeholder-slate-300 border-none outline-none"
-          />
-          <div className="flex gap-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase">
+              SEO Title
+            </label>
             <input
-              value={currentPost.keyword}
+              value={currentPost.seoTitle}
               onChange={(e) =>
-                setCurrentPost({ ...currentPost, keyword: e.target.value })
+                setCurrentPost({ ...currentPost, seoTitle: e.target.value })
               }
-              placeholder="Target Keyword"
-              className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium border-none outline-none w-64"
+              className="w-full p-2 border rounded-lg mt-1 outline-none focus:ring-1 ring-[#23b5b5]"
             />
+            <span className="text-[10px] text-slate-400">
+              {currentPost.seoTitle.length} characters
+            </span>
           </div>
-          <textarea
-            value={currentPost.content}
-            onChange={(e) =>
-              setCurrentPost({ ...currentPost, content: e.target.value })
-            }
-            placeholder="Start writing..."
-            className="w-full flex-1 min-h-[500px] pb-10 resize-none outline-none text-lg text-slate-600 leading-relaxed font-light"
-          />
+
+          <div>
+            <label className="text-xs font-semibold text-slate-500 uppercase">
+              SEO Description
+            </label>
+            <textarea
+              value={currentPost.seoDescription}
+              onChange={(e) =>
+                setCurrentPost({
+                  ...currentPost,
+                  seoDescription: e.target.value,
+                })
+              }
+              placeholder="Meta Description"
+              className="w-full p-2 border rounded-lg mt-1 outline-none focus:ring-1 ring-[#23b5b5] h-20"
+            />
+            <span className="text-[10px] text-slate-400">
+              {currentPost.seoDescription.length} characters
+            </span>
+          </div>
+
+          {/* Google Preview */}
+          <div className="p-4 bg-slate-50 rounded-lg border border-slate-100">
+            <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">
+              Google Search Preview
+            </p>
+            <h4 className="text-blue-700 text-lg hover:underline cursor-pointer truncate">
+              {currentPost.seoTitle || currentPost.title}
+            </h4>
+            <p className="text-sm text-slate-600 line-clamp-2 mt-1">
+              {currentPost.seoDescription ||
+                "Please enter a meta description for your blog post..."}
+            </p>
+          </div>
         </div>
       </div>
-
-      {/* SEO Sidebar */}
+      {/* Right Sidebar remains your SEO Analysis Component */}
       <div className="w-80 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-100 bg-slate-50">
           <h3 className="font-bold text-lg text-slate-700 flex items-center gap-2">
@@ -675,6 +893,7 @@ export default function GoBlogApp() {
           </div>
         </div>
       </div>
+      ;
     </div>
   );
 
@@ -719,7 +938,7 @@ export default function GoBlogApp() {
             </div>
 
             <div className="flex items-center gap-6">
-              <div className="flex flex-col items-end">
+              {/* <div className="flex flex-col items-end">
                 <span
                   className={`text-xl font-bold ${
                     post.score >= 80
@@ -734,9 +953,9 @@ export default function GoBlogApp() {
                 <span className="text-[10px] uppercase text-slate-400 font-bold">
                   Score
                 </span>
-              </div>
+              </div> */}
 
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-2 ">
                 <button
                   onClick={() => handleEdit(post)}
                   className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full"
@@ -851,18 +1070,6 @@ export default function GoBlogApp() {
           </button>
 
           <button
-            onClick={() => setActiveTab("ai_writer")}
-            className={`flex items-center gap-2 font-medium transition-colors ${
-              activeTab === "ai_writer"
-                ? "text-[#23b5b5]"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <Sparkles size={18} />
-            AI Writer
-          </button>
-
-          <button
             onClick={() => setActiveTab("editor")}
             className={`flex items-center gap-2 font-medium transition-colors ${
               activeTab === "editor"
@@ -894,7 +1101,6 @@ export default function GoBlogApp() {
       {/* MAIN PAGE CONTENT */}
       <main className="flex-1 p-8 overflow-visible">
         {activeTab === "dashboard" && <RenderDashboard />}
-        {activeTab === "ai_writer" && <RenderAIWriter />}
         {activeTab === "editor" && renderEditor()}
         {activeTab === "posts" && renderPosts()}
       </main>

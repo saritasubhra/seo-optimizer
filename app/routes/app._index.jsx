@@ -155,7 +155,7 @@ export default function Index() {
 
   const handleButtonClick = () => {
     shopify.toast.show("Redirecting to Blog setup...");
-    navigate("/app/trending");
+    navigate("/app/seo");
   };
 
   // We are removing the <s-page> tag as that is likely a custom web component
@@ -185,11 +185,8 @@ export default function Index() {
             Home
           </span>
 
-          <span
-            style={styles.navLinkItem}
-            onClick={() => navigate("/app/blogs")}
-          >
-            Blog
+          <span style={styles.navLinkItem} onClick={() => navigate("/app/seo")}>
+            Blogs
           </span>
           {/* 
           <span style={styles.navLinkItem} onClick={() => navigate("/app/seo")}>

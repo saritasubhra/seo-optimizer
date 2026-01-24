@@ -5,18 +5,33 @@ export async function loader({ request }) {
     const { admin } = await authenticate.admin(request);
 
     const response = await admin.graphql(`
-      query {
-        blogs(first: 5) {
-          edges {
-            node {
-              id
-              title
-              handle
+  query {
+    blogs(first: 5) {
+      edges {
+        node {
+          id
+          title
+          handle
+          articles(first: 10) {
+            edges {
+              node {
+                id
+                title
+                handle
+                tags
+                image {
+                      url
+                      altText
+                    }
+                publishedAt
+              }
             }
           }
         }
       }
-    `);
+    }
+  }
+`);
 
     const json = await response.json();
 
