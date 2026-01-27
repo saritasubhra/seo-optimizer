@@ -203,7 +203,7 @@ export default function Index() {
           </p>
 
           <button style={styles.button} onClick={handleButtonClick}>
-            Start Creating Blog Posts →
+            Start Optimizing Blog Posts →
           </button>
 
           <p style={styles.helperText}>
