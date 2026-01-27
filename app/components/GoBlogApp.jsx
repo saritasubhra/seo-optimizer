@@ -1,107 +1,16 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   PenTool,
   FileText,
-  Search,
-  CheckCircle,
-  AlertCircle,
-  BarChart3,
   Sparkles,
   Save,
   Trash2,
-  Globe,
   Loader2,
   X,
   Key,
 } from "lucide-react";
 import PropTypes from "prop-types";
-
-// --- Utility: SEO Analysis Engine ---
-const analyzeSEO = (title, content, keyword) => {
-  let score = 0;
-  const checks = [];
-
-  if (!keyword) return { score: 0, checks: [] };
-
-  const lowerContent = content.toLowerCase();
-  const lowerTitle = title.toLowerCase();
-  const lowerKeyword = keyword.toLowerCase();
-
-  // 1. Keyword in Title (20pts)
-  if (lowerTitle.includes(lowerKeyword)) {
-    score += 20;
-    checks.push({ passed: true, msg: "Keyword found in title" });
-  } else {
-    checks.push({ passed: false, msg: "Keyword missing from title" });
-  }
-
-  // 2. Title Length (10pts)
-  if (title.length >= 4 && title.length <= 60) {
-    score += 10;
-    checks.push({ passed: true, msg: "Title length is optimal (4-60 chars)" });
-  } else {
-    checks.push({
-      passed: false,
-      msg: `Title length: ${title.length} chars (Target: 4-60)`,
-    });
-  }
-
-  // 3. Keyword Density (20pts) - Rough check
-  const wordCount = content.split(/\s+/).filter((w) => w.length > 0).length;
-  const keywordCount = (lowerContent.match(new RegExp(lowerKeyword, "g")) || [])
-    .length;
-  const density = wordCount > 0 ? (keywordCount / wordCount) * 100 : 0;
-
-  if (density >= 0.5 && density <= 10.5) {
-    score += 20;
-    checks.push({
-      passed: true,
-      msg: `Keyword density good (${density.toFixed(1)}%)`,
-    });
-  } else {
-    checks.push({
-      passed: false,
-      msg: `Keyword density ${density.toFixed(1)}% (Target: 0.5% - 2.5%)`,
-    });
-  }
-
-  // 4. Content Length (20pts)
-  if (wordCount > 300) {
-    score += 20;
-    checks.push({ passed: true, msg: "Content length > 300 words" });
-  } else {
-    checks.push({
-      passed: false,
-      msg: "Content too short (Target: >300 words)",
-    });
-  }
-
-  // 5. Keyword in Introduction (First 100 words) (15pts)
-  const intro = lowerContent.split(/\s+/).slice(0, 100).join(" ");
-  if (intro.includes(lowerKeyword)) {
-    score += 15;
-    checks.push({ passed: true, msg: "Keyword appears in first 100 words" });
-  } else {
-    checks.push({ passed: false, msg: "Keyword missing from introduction" });
-  }
-
-  // 6. Use of Headers (Simulated) (15pts)
-  // In a real WYSIWYG, we'd check HTML tags. Here we check for markdown-style headers #
-  if (content.includes("# ")) {
-    score += 15;
-    checks.push({ passed: true, msg: "Content uses subheadings" });
-  } else {
-    checks.push({
-      passed: false,
-      msg: "No subheadings detected (Use # for headers)",
-    });
-  }
-
-  return { score, checks };
-};
-
-// --- Components ---
 
 const SidebarItem = ({ icon: Icon, label, active, onClick }) => (
   <button
@@ -179,7 +88,6 @@ export default function GoBlogApp() {
   const [userApiKey, setUserApiKey] = useState("");
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
 
-  // Editor State
   const [currentPost, setCurrentPost] = useState({
     id: null,
     title: "",
@@ -265,22 +173,6 @@ export default function GoBlogApp() {
     }
   };
 
-  // const handleDelete = async (id) => {
-  //   await fetch("/api/seo/delete", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({ id }),
-  //   });
-
-  //   showNotification("Post deleted!", "success");
-
-  //   // Reload list
-  //   const res = await fetch("/api/seo/list");
-  //   const data = await res.json();
-  //   setPosts(data || []);
-  // };
-
-  // Add this helper outside your component
   const stripHtml = (html) => {
     if (!html) return "";
     const doc = new DOMParser().parseFromString(html, "text/html");
@@ -425,11 +317,6 @@ export default function GoBlogApp() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // SEO Analysis Memo
-  const seoAnalysis = useMemo(() => {
-    return analyzeSEO(currentPost.title, currentPost.content);
-  }, [currentPost.title, currentPost.content]);
-
   const RenderDashboard = () => (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -444,52 +331,6 @@ export default function GoBlogApp() {
             <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
               <FileText size={24} />
             </div>
-          </div>
-          <div className="mt-4 flex items-center text-sm text-green-600">
-            <span className="font-medium">+2 this week</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Avg SEO Score
-              </p>
-              <h3 className="text-3xl font-bold text-slate-800 mt-2">
-                {posts.length > 0
-                  ? Math.round(
-                      posts.reduce((acc, p) => acc + (p.score || 0), 0) /
-                        posts.length,
-                    )
-                  : 0}
-              </h3>
-            </div>
-            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-              <BarChart3 size={24} />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center text-sm text-slate-400">
-            <span className="font-medium">Target: 80+</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-slate-500">
-                Keywords Ranked
-              </p>
-              <h3 className="text-3xl font-bold text-slate-800 mt-2">
-                {posts.length * 3}
-              </h3>
-            </div>
-            <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-              <Globe size={24} />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center text-sm text-green-600">
-            <span className="font-medium">+12% vs last month</span>
           </div>
         </div>
       </div>
@@ -518,7 +359,7 @@ export default function GoBlogApp() {
                 >
                   <div className="flex items-center gap-4">
                     {/* --- REPLACED SCORE WITH IMAGE --- */}
-                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 shrink-0 border border-slate-200">
                       {post.image?.url ? (
                         <img
                           src={post.image.url}
@@ -615,10 +456,14 @@ export default function GoBlogApp() {
           </div>
           <div className="p-6 space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-500 uppercase">
+              <label
+                htmlFor="title"
+                className="text-xs font-semibold text-slate-500 uppercase"
+              >
                 Title
               </label>
               <input
+                id="title"
                 value={currentPost.title}
                 onChange={(e) =>
                   setCurrentPost({ ...currentPost, title: e.target.value })
@@ -629,7 +474,10 @@ export default function GoBlogApp() {
             <div className="relative space-y-2">
               {/* Header row */}
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-500 uppercase">
+                <label
+                  htmlFor="content"
+                  className="text-xs font-semibold text-slate-500 uppercase"
+                >
                   Content
                 </label>
 
@@ -687,6 +535,7 @@ export default function GoBlogApp() {
 
               {/* Textarea */}
               <textarea
+                id="content"
                 value={currentPost.content}
                 onChange={(e) =>
                   setCurrentPost({ ...currentPost, content: e.target.value })
@@ -710,10 +559,14 @@ export default function GoBlogApp() {
 
         {/* Visibility Card */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <label className="text-xs font-semibold text-slate-500 uppercase">
+          <label
+            htmlFor="visibility"
+            className="text-xs font-semibold text-slate-500 uppercase"
+          >
             Blog Post Visibility
           </label>
           <select
+            id="visibility"
             value={currentPost.visibility}
             onChange={(e) =>
               setCurrentPost({ ...currentPost, visibility: e.target.value })
@@ -721,7 +574,6 @@ export default function GoBlogApp() {
             className="w-full mt-2 p-2 border rounded-lg bg-slate-50 outline-none"
           >
             <option value="Visible">Visible</option>
-            <option value="Hidden">Hidden</option>
           </select>
         </div>
 
@@ -729,18 +581,13 @@ export default function GoBlogApp() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
           <div className="flex justify-between items-center border-b pb-2">
             <h3 className="font-bold text-slate-700">Blog Post Tags</h3>
-            <button
-              className="text-[#23b5b5] text-xs font-semibold flex items-center gap-1 hover:underline"
-              onClick={() => {
-                /* Optional: Add AI Tag generation logic here */
-              }}
-            >
-              <Sparkles size={14} /> Generate AI Tags
-            </button>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-500 uppercase">
+            <label
+              htmlFor="tags"
+              className="text-xs font-semibold text-slate-500 uppercase"
+            >
               Tags
             </label>
             <div className="flex flex-wrap gap-2 p-2 border rounded-lg bg-slate-50 min-h-[45px]">
@@ -794,10 +641,14 @@ export default function GoBlogApp() {
           </h3>
 
           <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase">
+            <label
+              htmlFor="seotitle"
+              className="text-xs font-semibold text-slate-500 uppercase"
+            >
               SEO Title
             </label>
             <input
+              id="seotitle"
               value={currentPost.seoTitle}
               onChange={(e) =>
                 setCurrentPost({ ...currentPost, seoTitle: e.target.value })
@@ -810,10 +661,14 @@ export default function GoBlogApp() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-500 uppercase">
+            <label
+              htmlFor="seodes"
+              className="text-xs font-semibold text-slate-500 uppercase"
+            >
               SEO Description
             </label>
             <textarea
+              id="seodes"
               value={currentPost.seoDescription}
               onChange={(e) =>
                 setCurrentPost({
@@ -844,56 +699,6 @@ export default function GoBlogApp() {
           </div>
         </div>
       </div>
-      {/* Right Sidebar remains your SEO Analysis Component */}
-      <div className="w-80 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-slate-100 bg-slate-50">
-          <h3 className="font-bold text-lg text-slate-700 flex items-center gap-2">
-            <Search size={18} /> SEO Analysis
-          </h3>
-        </div>
-        <div className="p-6">
-          <div className="flex justify-center mb-8">
-            <ScoreGauge score={seoAnalysis.score} />
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Checklist
-            </h4>
-            {seoAnalysis.checks.map((check, idx) => (
-              <div key={idx} className="flex gap-3 items-start">
-                {check.passed ? (
-                  <CheckCircle
-                    size={18}
-                    className="text-emerald-500 mt-0.5 shrink-0"
-                  />
-                ) : (
-                  <AlertCircle
-                    size={18}
-                    className="text-rose-500 mt-0.5 shrink-0"
-                  />
-                )}
-                <span
-                  className={`text-sm ${check.passed ? "text-slate-600" : "text-slate-500"}`}
-                >
-                  {check.msg}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <h4 className="text-blue-800 font-semibold mb-2 flex items-center gap-2">
-              <Sparkles size={16} /> Pro Tip
-            </h4>
-            <p className="text-xs text-blue-700">
-              Try to include your keyword {currentPost.keyword || "..."} in the
-              first paragraph to hook readers and bots immediately!
-            </p>
-          </div>
-        </div>
-      </div>
-      ;
     </div>
   );
 
@@ -901,33 +706,35 @@ export default function GoBlogApp() {
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in">
       <div className="p-6 border-b border-slate-100 flex justify-between items-center">
         <h2 className="text-lg font-bold text-slate-800">My Blog Posts</h2>
-        <button
-          onClick={() => {
-            setCurrentPost({ title: "", content: "", keyword: "" });
-            setActiveTab("editor");
-          }}
-          className="px-4 py-2 bg-[#23b5b5] text-white rounded-lg text-sm font-medium "
-        >
-          New Post
-        </button>
       </div>
       <div className="divide-y divide-slate-100">
         {posts.map((post) => (
           <div
             key={post.id}
-            className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors group"
+            className="p-6 flex items-start justify-between hover:bg-slate-50 transition-colors group"
           >
+            {/* LEFT SIDE */}
             <div className="flex-1">
-              <h3 className="font-semibold text-slate-800 mb-1">
+              <h3 className="font-semibold text-slate-800 mb-2">
                 {post.title}
               </h3>
-              <div className="flex gap-4 text-sm text-slate-500">
-                <span className="flex items-center gap-1">
-                  <Search size={14} /> {post.keyword || "No keyword"}
-                </span>
-                <span className="flex items-center gap-1 text-slate-500">
-                  {post.createdAt
-                    ? new Date(post.createdAt).toLocaleDateString(undefined, {
+
+              {/* Tags + Date */}
+              <div className="flex items-center gap-4 flex-wrap text-sm text-slate-500">
+                {/* Tags */}
+                {post.tags?.map((tag) => (
+                  <span
+                    key={tag}
+                    className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs"
+                  >
+                    {tag}
+                  </span>
+                ))}
+
+                {/* Date */}
+                <span className="text-slate-400 whitespace-nowrap">
+                  {post.publishedAt
+                    ? new Date(post.publishedAt).toLocaleDateString(undefined, {
                         year: "numeric",
                         month: "short",
                         day: "numeric",
@@ -937,38 +744,21 @@ export default function GoBlogApp() {
               </div>
             </div>
 
-            <div className="flex items-center gap-6">
-              {/* <div className="flex flex-col items-end">
-                <span
-                  className={`text-xl font-bold ${
-                    post.score >= 80
-                      ? "text-emerald-500"
-                      : post.score >= 50
-                        ? "text-amber-500"
-                        : "text-rose-500"
-                  }`}
-                >
-                  {post.score || 0}
-                </span>
-                <span className="text-[10px] uppercase text-slate-400 font-bold">
-                  Score
-                </span>
-              </div> */}
+            {/* RIGHT SIDE – ACTIONS */}
+            <div className="flex items-center gap-2 mt-1">
+              <button
+                onClick={() => handleEdit(post)}
+                className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full"
+              >
+                <PenTool size={18} />
+              </button>
 
-              <div className="flex items-center gap-2 ">
-                <button
-                  onClick={() => handleEdit(post)}
-                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full"
-                >
-                  <PenTool size={18} />
-                </button>
-                <button
-                  onClick={() => handleDelete(post.id)}
-                  className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
+              <button
+                onClick={() => handleDelete(post.id)}
+                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full"
+              >
+                <Trash2 size={18} />
+              </button>
             </div>
           </div>
         ))}

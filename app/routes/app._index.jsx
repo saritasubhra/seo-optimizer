@@ -17,7 +17,6 @@ export default function Index() {
   const shopify = useAppBridge();
   const navigate = useNavigate();
 
-  // Unified styles object
   const styles = {
     // --- LAYOUT & CONTAINER STYLES ---
 
@@ -158,8 +157,6 @@ export default function Index() {
     navigate("/app/seo");
   };
 
-  // We are removing the <s-page> tag as that is likely a custom web component
-  // that imposes the width restriction you are experiencing.
   return (
     <div style={styles.mainWrapper}>
       {/* DECORATIVE SHAPES */}
@@ -170,13 +167,10 @@ export default function Index() {
           overflow: "hidden",
           zIndex: 0,
         }}
-      >
-        {/* <div style={styles.decorativeCircle1}></div> */}
-        {/* <div style={styles.decorativeCircle2}></div> */}
-      </div>
+      ></div>
 
       {/* NAVBAR: Now uses a full-width div */}
-      <nav style={styles.navWrapper}>
+      {/* <nav style={styles.navWrapper}>
         <div style={styles.navLinks}>
           <span
             style={{ ...styles.navLinkItem, ...styles.navLinkActive }}
@@ -188,25 +182,24 @@ export default function Index() {
           <span style={styles.navLinkItem} onClick={() => navigate("/app/seo")}>
             Blogs
           </span>
-          {/* 
+    
           <span style={styles.navLinkItem} onClick={() => navigate("/app/seo")}>
             SEO
-          </span> */}
+          </span> 
         </div>
-      </nav>
+      </nav> */}
 
       {/* HERO CONTENT CONTAINER: Max-width centers content */}
       <div style={styles.contentContainer}>
         {/* HERO */}
         <div>
-          <div style={styles.badge}>✨ **AI-Powered Content Creation**</div>
+          <div style={styles.badge}>✨ AI-Powered Content Creation</div>
 
           <h1 style={styles.title}>Shopify AI SEO Blog</h1>
 
           <p style={styles.subtitle}>
-            Transform your Shopify store with intelligent, **SEO-rich blog
-            posts**. Create compelling content that drives traffic and converts
-            visitors.
+            Transform your Shopify store with intelligent, SEO-rich blog posts.
+            Create compelling content that drives traffic and converts visitors.
           </p>
 
           <button style={styles.button} onClick={handleButtonClick}>
@@ -214,7 +207,7 @@ export default function Index() {
           </button>
 
           <p style={styles.helperText}>
-            No credit card required • **Free to get started**
+            No credit card required • Free to get started
           </p>
         </div>
       </div>
