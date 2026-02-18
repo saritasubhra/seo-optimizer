@@ -9,6 +9,8 @@ import {
   Loader2,
   X,
   Key,
+  Image as ImageIco,
+  Upload,
 } from "lucide-react";
 import PropTypes from "prop-types";
 
@@ -101,6 +103,105 @@ export default function GoBlogApp() {
   const [isSaving, setIsSaving] = useState(false);
   const [notification, setNotification] = useState(null);
   const [posts, setPosts] = useState([]);
+
+  const [topic, setTopic] = useState("");
+  const [length, setLength] = useState("Short");
+  const [tone, setTone] = useState("Professional");
+  const [outline, setOutline] = useState("");
+
+  // SEO Keywords State (Array of strings)
+  const [keywords, setKeywords] = useState([]);
+  const [keywordInput, setKeywordInput] = useState("");
+
+  // Image State
+  const [image, setImage] = useState(null);
+
+  /* --- Keyword Logic --- */
+  const handleKeywordKeyDown = (e) => {
+    if (e.key === "Enter" && keywordInput.trim() !== "") {
+      e.preventDefault();
+      // Prevent duplicates
+      if (!keywords.includes(keywordInput.trim())) {
+        setKeywords([...keywords, keywordInput.trim()]);
+      }
+      setKeywordInput("");
+    }
+  };
+
+  const removeKeyword = (indexToRemove) => {
+    setKeywords(keywords.filter((_, index) => index !== indexToRemove));
+  };
+
+  /* --- Image Logic --- */
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result); // Set preview URL
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImage(null);
+    // Reset the input value so the same file can be re-uploaded if needed
+    document.getElementById("image-upload").value = "";
+  };
+
+  const generateWithAI = async (payload) => {
+    try {
+      setIsGenerating(true);
+
+      const res = await fetch("/api/generate-blog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          apiKey: userApiKey,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || "Generation failed");
+
+      // Move generated blog to editor
+      setCurrentPost({
+        id: null,
+        title: payload.topic,
+        content: data.content,
+        keyword: payload.keywords,
+        visibility: "Visible",
+        seoTitle: payload.topic,
+        seoDescription: "",
+      });
+
+      setActiveTab("editor");
+      showNotification("AI blog generated!", "success");
+    } catch (err) {
+      showNotification(err.message, "error");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const uploadToShopify = async (base64) => {
+    const res = await fetch("/api/shopify/upload-file", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageBase64: base64,
+        fileName: "blog-image.png",
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+
+    return data.url;
+  };
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -205,67 +306,163 @@ export default function GoBlogApp() {
     }
   };
 
-  const handleSave = async () => {
-    if (!currentPost.id) {
-      showNotification(
-        "This post doesn't have a Shopify ID. Use Save Draft instead.",
-        "error",
-      );
-      return;
-    }
+  // const handleSave = async () => {
+  //   if (!currentPost.id) {
+  //     showNotification(
+  //       "This post doesn't have a Shopify ID. Use Save Draft instead.",
+  //       "error",
+  //     );
+  //     return;
+  //   }
 
+  //   try {
+  //     setIsSaving(true);
+
+  //     const res = await fetch("/api/shopify/article-update", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         id: currentPost.id,
+  //         title: currentPost.title,
+  //         bodyHtml: currentPost.content,
+  //         tags: currentPost.keyword,
+  //         isPublished: currentPost.visibility === "Visible",
+  //         seoTitle: currentPost.seoTitle,
+  //         seoDescription: currentPost.seoDescription,
+  //       }),
+  //     });
+
+  //     const result = await res.json();
+
+  //     if (!res.ok || result.error || result.errors) {
+  //       showNotification(result.error || "Failed to update article", "error");
+  //       return;
+  //     }
+
+  //     showNotification("Successfully updated in Shopify!", "success");
+  //     setActiveTab("posts");
+
+  //     const res1 = await fetch("/api/shopify/blogs");
+  //     const data = await res1.json();
+
+  //     const allArticles = data.flatMap((blogEdge) => {
+  //       const articles = blogEdge.node.articles?.edges || [];
+
+  //       return articles.map((articleEdge) => ({
+  //         ...articleEdge.node,
+  //         blogTitle: blogEdge.node.title, // e.g., "News"
+  //         blogId: blogEdge.node.id,
+  //       }));
+  //     });
+
+  //     setPosts(allArticles || []);
+  //     setCurrentPost({
+  //       id: null,
+  //       title: "",
+  //       content: "",
+  //       keyword: [],
+  //       visibility: "",
+  //       seoTitle: "",
+  //       seoDescription: "",
+  //     });
+  //   } catch (error) {
+  //     showNotification("Network error while updating", "error");
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
+
+  // const handleSave = async () => {
+  //   try {
+  //     setIsSaving(true);
+
+  //     const endpoint = currentPost.id
+  //       ? "/api/shopify/article-update"
+  //       : "/api/shopify/article-create";
+
+  //     const res = await fetch(endpoint, {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         id: currentPost.id, // only used for update
+  //         blogId: posts[0]?.blogId, // choose default blog
+  //         title: currentPost.title,
+  //         bodyHtml: currentPost.content,
+  //         tags: currentPost.keyword,
+  //         isPublished: currentPost.visibility === "Visible",
+  //       }),
+  //     });
+
+  //     const result = await res.json();
+
+  //     if (!res.ok || result.error) {
+  //       throw new Error(result.error || "Save failed");
+  //     }
+
+  //     showNotification(
+  //       currentPost.id
+  //         ? "Blog updated in Shopify!"
+  //         : "Blog created in Shopify!",
+  //       "success",
+  //     );
+
+  //     setActiveTab("posts");
+  //   } catch (err) {
+  //     showNotification(err.message, "error");
+  //     console.log(err);
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
+
+  const handleSave = async () => {
     try {
       setIsSaving(true);
 
-      const res = await fetch("/api/shopify/article-update", {
+      let imageUrl = image;
+
+      // Upload only if base64
+      if (imageUrl?.startsWith("data:")) {
+        imageUrl = await uploadToShopify(imageUrl);
+      }
+
+      const endpoint = currentPost.id
+        ? "/api/shopify/article-update"
+        : "/api/shopify/article-create";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: currentPost.id,
+          blogId: posts[0]?.blogId,
           title: currentPost.title,
           bodyHtml: currentPost.content,
           tags: currentPost.keyword,
           isPublished: currentPost.visibility === "Visible",
-          seoTitle: currentPost.seoTitle,
-          seoDescription: currentPost.seoDescription,
+
+          image: imageUrl
+            ? { url: imageUrl, altText: currentPost.title }
+            : null,
         }),
       });
 
       const result = await res.json();
 
-      if (!res.ok || result.error || result.errors) {
-        showNotification(result.error || "Failed to update article", "error");
-        return;
+      if (!res.ok || result.error) {
+        throw new Error(result.error || "Save failed");
       }
 
-      showNotification("Successfully updated in Shopify!", "success");
+      showNotification(
+        currentPost.id
+          ? "Blog updated in Shopify!"
+          : "Blog created in Shopify!",
+        "success",
+      );
+
       setActiveTab("posts");
-
-      const res1 = await fetch("/api/shopify/blogs");
-      const data = await res1.json();
-
-      const allArticles = data.flatMap((blogEdge) => {
-        const articles = blogEdge.node.articles?.edges || [];
-
-        return articles.map((articleEdge) => ({
-          ...articleEdge.node,
-          blogTitle: blogEdge.node.title, // e.g., "News"
-          blogId: blogEdge.node.id,
-        }));
-      });
-
-      setPosts(allArticles || []);
-      setCurrentPost({
-        id: null,
-        title: "",
-        content: "",
-        keyword: [],
-        visibility: "",
-        seoTitle: "",
-        seoDescription: "",
-      });
-    } catch (error) {
-      showNotification("Network error while updating", "error");
+    } catch (err) {
+      showNotification(err.message, "error");
     } finally {
       setIsSaving(false);
     }
@@ -772,6 +969,192 @@ export default function GoBlogApp() {
     </div>
   );
 
+  const renderGenerate = () => {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto p-4">
+        {/* LEFT PANEL: INPUTS */}
+        <div className="space-y-6">
+          <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              {/* <Sparkles className="text-teal-600" size={20} /> */}
+              Blog Configuration
+            </h2>
+
+            {/* Topic */}
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">
+                Blog Topic
+              </label>
+              <input
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="e.g. 10 Best Summer Fashion Trends"
+                className="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Length */}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700">
+                  Length
+                </label>
+                <select
+                  value={length}
+                  onChange={(e) => setLength(e.target.value)}
+                  className="w-full p-3 border border-slate-300 rounded-xl outline-none"
+                >
+                  <option>Short</option>
+                  <option>Medium</option>
+                  <option>Long</option>
+                </select>
+              </div>
+
+              {/* Tone */}
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700">
+                  Tone
+                </label>
+                <select
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value)}
+                  className="w-full p-3 border border-slate-300 rounded-xl outline-none"
+                >
+                  <option>Professional</option>
+                  <option>Friendly</option>
+                  <option>Persuasive</option>
+                  <option>Educational</option>
+                </select>
+              </div>
+            </div>
+
+            {/* SEO Keywords (Tag Input) */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">
+                SEO Keywords
+              </label>
+              <div className="min-h-[48px] p-2 border border-slate-300 rounded-xl flex flex-wrap gap-2 items-center bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-500 transition">
+                {keywords.map((kw, index) => (
+                  <span
+                    key={index}
+                    className="flex items-center gap-1 bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-sm font-medium border border-teal-200"
+                  >
+                    {kw}
+                    <button
+                      onClick={() => removeKeyword(index)}
+                      className="hover:text-teal-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  value={keywordInput}
+                  onChange={(e) => setKeywordInput(e.target.value)}
+                  onKeyDown={handleKeywordKeyDown}
+                  placeholder={
+                    keywords.length === 0 ? "Type and press Enter..." : ""
+                  }
+                  className="flex-1 bg-transparent outline-none text-sm p-1 min-w-[120px]"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 italic">
+                Press Enter after each keyword
+              </p>
+            </div>
+
+            {/* Featured Image Upload & Delete */}
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">
+                Featured Image
+              </label>
+              {!image ? (
+                <label className="mt-2 flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer hover:bg-slate-50 hover:border-teal-500 transition">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="text-slate-400 mb-2" size={24} />
+                    <p className="text-xs text-slate-500">
+                      Click to upload or drag and drop
+                    </p>
+                  </div>
+                  <input
+                    id="image-upload"
+                    type="file"
+                    className="hidden"
+                    onChange={handleImageChange}
+                    accept="image/*"
+                  />
+                </label>
+              ) : (
+                <div className="relative mt-2 group">
+                  <img
+                    src={image}
+                    alt="Preview"
+                    className="w-full h-40 object-cover rounded-xl border border-slate-200"
+                  />
+                  <button
+                    onClick={removeImage}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Outline */}
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">
+                Blog Outline (optional)
+              </label>
+              <textarea
+                value={outline}
+                onChange={(e) => setOutline(e.target.value)}
+                placeholder="Briefly describe the structure..."
+                className="w-full mt-1 p-3 border border-slate-300 rounded-xl h-28 outline-none focus:ring-2 focus:ring-teal-500 transition"
+              />
+            </div>
+          </div>
+
+          {/* Create button */}
+          <button
+            disabled={isGenerating}
+            className="w-full py-4 bg-teal-600 text-white rounded-xl text-lg font-bold hover:bg-teal-700 active:scale-[0.98] transition-all shadow-lg shadow-teal-100"
+            onClick={() => {
+              if (!userApiKey) {
+                setShowApiKeyModal(true);
+                return;
+              }
+
+              generateWithAI({
+                topic,
+                keywords,
+                tone,
+                length,
+                outline,
+              });
+            }}
+          >
+            {isGenerating ? "Generating with AI..." : "Generate AI Blog Post"}
+          </button>
+        </div>
+
+        {/* RIGHT PANEL (PREVIEW) */}
+        <div className="bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center p-12 sticky top-4 h-[fit-content] min-h-[500px]">
+          <div className="bg-white p-6 rounded-full shadow-sm mb-6">
+            <Sparkles size={48} className="text-teal-500 animate-pulse" />
+          </div>
+          <h3 className="text-xl font-bold text-slate-800 mb-2">
+            Ready to Spark?
+          </h3>
+          <p className="text-slate-500 max-w-xs leading-relaxed">
+            Fill in the details on the left and click generate. Our AI will
+            craft a high-ranking SEO blog post for you in seconds.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const ApiKeyModal = () => {
     const [tempKey, setTempKey] = useState(userApiKey || "");
 
@@ -882,6 +1265,18 @@ export default function GoBlogApp() {
             <FileText size={18} />
             My Posts
           </button>
+
+          <button
+            onClick={() => setActiveTab("generate")}
+            className={`flex items-center gap-2 font-medium transition-colors ${
+              activeTab === "generate"
+                ? "text-[#23b5b5]"
+                : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            <Sparkles size={18} />
+            Generate
+          </button>
         </div>
 
         {/* Avatar */}
@@ -893,6 +1288,7 @@ export default function GoBlogApp() {
         {activeTab === "dashboard" && <RenderDashboard />}
         {activeTab === "editor" && renderEditor()}
         {activeTab === "posts" && renderPosts()}
+        {activeTab === "generate" && renderGenerate()}
       </main>
 
       <ApiKeyModal />
