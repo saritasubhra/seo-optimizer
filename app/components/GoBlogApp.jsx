@@ -187,21 +187,21 @@ export default function GoBlogApp() {
     }
   };
 
-  const uploadToShopify = async (base64) => {
-    const res = await fetch("/api/shopify/upload-file", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        imageBase64: base64,
-        fileName: "blog-image.png",
-      }),
-    });
+  // const uploadToShopify = async (base64) => {
+  //   const res = await fetch("/api/shopify/upload-file", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({
+  //       imageBase64: base64,
+  //       fileName: "blog-image.png",
+  //     }),
+  //   });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Upload failed");
+  //   const data = await res.json();
+  //   if (!res.ok) throw new Error(data.error || "Upload failed");
 
-    return data.url;
-  };
+  //   return data.url;
+  // };
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -419,12 +419,12 @@ export default function GoBlogApp() {
     try {
       setIsSaving(true);
 
-      let imageUrl = image;
+      // let imageUrl = image;
 
       // Upload only if base64
-      if (imageUrl?.startsWith("data:")) {
-        imageUrl = await uploadToShopify(imageUrl);
-      }
+      // if (imageUrl?.startsWith("data:")) {
+      //   imageUrl = await uploadToShopify(imageUrl);
+      // }
 
       const endpoint = currentPost.id
         ? "/api/shopify/article-update"
@@ -441,9 +441,9 @@ export default function GoBlogApp() {
           tags: currentPost.keyword,
           isPublished: currentPost.visibility === "Visible",
 
-          image: imageUrl
-            ? { url: imageUrl, altText: currentPost.title }
-            : null,
+          // image: imageUrl
+          //   ? { url: imageUrl, altText: currentPost.title }
+          //   : null,
         }),
       });
 

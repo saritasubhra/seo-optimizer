@@ -29,9 +29,9 @@ export const action = async ({ request }) => {
             tags: data.tags || [],
             isPublished: true,
             author: {
-              name: "AI Writer", // you can customize later
+              name: "Gemini", // you can customize later
             },
-            image: data.image || null,
+            // image: data.image || null,
             // seo: {
             //   title: data.seoTitle,
             //   description: data.seoDescription,

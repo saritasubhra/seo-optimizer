@@ -3,6 +3,7 @@ import { authenticate } from "../shopify.server";
 
 export const action = async ({ request }) => {
   const { admin } = await authenticate.admin(request);
+
   const { imageBase64, fileName } = await request.json();
 
   if (!imageBase64) {
@@ -43,6 +44,8 @@ export const action = async ({ request }) => {
     );
 
     const json = await response.json();
+
+    console.log("json", json);
 
     const error = json.data?.fileCreate?.userErrors?.[0];
     if (error) {
