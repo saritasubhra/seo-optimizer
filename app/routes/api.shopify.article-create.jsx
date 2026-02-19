@@ -3,6 +3,18 @@ import { authenticate } from "../shopify.server";
 export const action = async ({ request }) => {
   try {
     const { admin } = await authenticate.admin(request);
+
+    const userResponse = await admin.graphql(`
+      query {
+        shop {
+          shopOwnerName
+        }
+      }
+    `);
+    const shopData = await userResponse.json();
+
+    const authorName = shopData.data.shop.shopOwnerName;
+
     const data = await request.json();
 
     const response = await admin.graphql(
@@ -23,13 +35,13 @@ export const action = async ({ request }) => {
       {
         variables: {
           article: {
-            blogId: data.blogId, // ✅ MUST be inside article
+            blogId: data.blogId,
             title: data.title,
             body: data.bodyHtml,
             tags: data.tags || [],
             isPublished: true,
             author: {
-              name: "Gemini", // you can customize later
+              name: authorName,
             },
             // image: data.image || null,
             // seo: {
