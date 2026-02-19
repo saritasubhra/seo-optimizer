@@ -372,49 +372,6 @@ export default function GoBlogApp() {
   //   }
   // };
 
-  // const handleSave = async () => {
-  //   try {
-  //     setIsSaving(true);
-
-  //     const endpoint = currentPost.id
-  //       ? "/api/shopify/article-update"
-  //       : "/api/shopify/article-create";
-
-  //     const res = await fetch(endpoint, {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({
-  //         id: currentPost.id, // only used for update
-  //         blogId: posts[0]?.blogId, // choose default blog
-  //         title: currentPost.title,
-  //         bodyHtml: currentPost.content,
-  //         tags: currentPost.keyword,
-  //         isPublished: currentPost.visibility === "Visible",
-  //       }),
-  //     });
-
-  //     const result = await res.json();
-
-  //     if (!res.ok || result.error) {
-  //       throw new Error(result.error || "Save failed");
-  //     }
-
-  //     showNotification(
-  //       currentPost.id
-  //         ? "Blog updated in Shopify!"
-  //         : "Blog created in Shopify!",
-  //       "success",
-  //     );
-
-  //     setActiveTab("posts");
-  //   } catch (err) {
-  //     showNotification(err.message, "error");
-  //     console.log(err);
-  //   } finally {
-  //     setIsSaving(false);
-  //   }
-  // };
-
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -1064,7 +1021,7 @@ export default function GoBlogApp() {
             </div>
 
             {/* Featured Image Upload & Delete */}
-            <div className="space-y-1">
+            {/* <div className="space-y-1">
               <label className="text-sm font-semibold text-slate-700">
                 Featured Image
               </label>
@@ -1099,7 +1056,7 @@ export default function GoBlogApp() {
                   </button>
                 </div>
               )}
-            </div>
+            </div> */}
 
             {/* Outline */}
             <div className="space-y-1">
